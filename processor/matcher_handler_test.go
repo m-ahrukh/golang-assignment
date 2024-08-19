@@ -13,38 +13,44 @@ func TestMatcherHandlerFixture(t *testing.T) {
 type MatcherHandlerFixture struct {
 	*gunit.Fixture
 
-	inputSrcA   chan interface{}
-	inputSrcB   chan interface{}
-	output      chan interface{}
+	inputSrcA   chan *Envelope
+	inputSrcB   chan *Envelope
+	output      chan *Envelope
 	application *FakeMatcher
 	handler     *MatcherHandler
 }
 
 func (mhf *MatcherHandlerFixture) Setup() {
-	mhf.inputSrcA = make(chan interface{}, 10)
-	mhf.inputSrcB = make(chan interface{}, 10)
-	mhf.output = make(chan interface{}, 10)
+	mhf.inputSrcA = make(chan *Envelope, 10)
+	mhf.inputSrcB = make(chan *Envelope, 10)
+	mhf.output = make(chan *Envelope, 10)
 	mhf.application = NewFakeMatcher()
 	mhf.handler = NewMatcherHandler(mhf.inputSrcA, mhf.inputSrcB, mhf.output, mhf.application)
 }
 
-func (mhf *MatcherHandlerFixture) TestMatcherRecievesInputA() {
-	mhf.inputSrcA <- 1
+func (mhf *MatcherHandlerFixture) TestMatcherRecievesInput() {
+	envelope := &Envelope{}
+	mhf.inputSrcA <- envelope
 	close(mhf.inputSrcA)
 	mhf.handler.Handle()
-	mhf.AssertEqual(1, <-mhf.output)
-	mhf.AssertEqual(1, mhf.application.inputSrc)
+	mhf.AssertEqual(envelope, <-mhf.output)
+	mhf.AssertEqual(envelope.JsonInput, mhf.application.jsonInput)
+	// mhf.AssertEqual(1, <-mhf.output)
+	// mhf.AssertEqual(1, mhf.application.inputSrc)
 
-	mhf.inputSrcB <- 2
+	mhf.inputSrcB <- envelope
 	close(mhf.inputSrcB)
 	mhf.handler.Handle()
-	mhf.AssertEqual(2, <-mhf.output)
-	mhf.AssertEqual(2, mhf.application.inputSrc)
+	mhf.AssertEqual(envelope, <-mhf.output)
+	mhf.AssertEqual(envelope.XmlInput, mhf.application.xmlInput)
+	// mhf.AssertEqual(2, <-mhf.output)
+	// mhf.AssertEqual(2, mhf.application.inputSrc)
 }
 
 // ////////////////////////////////////////////////////////////
 type FakeMatcher struct {
-	inputSrc interface{}
+	jsonInput JSONInput
+	xmlInput  XMLInput
 }
 
 func NewFakeMatcher() *FakeMatcher {
@@ -52,5 +58,10 @@ func NewFakeMatcher() *FakeMatcher {
 }
 
 func (fakeMatcher *FakeMatcher) Match(value interface{}) {
-	fakeMatcher.inputSrc = value
+	switch v := value.(type) {
+	case JSONInput:
+		fakeMatcher.jsonInput = v
+	case XMLInput:
+		fakeMatcher.xmlInput = v
+	}
 }
