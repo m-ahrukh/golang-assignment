@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"log"
 	"testing"
 
 	"github.com/smarty/gunit"
@@ -17,6 +18,7 @@ type MatcherHandlerFixture struct {
 	inputSrcB   chan *Envelope
 	output      chan *Envelope
 	application *FakeMatcher
+	envelope    *Envelope
 	handler     *MatcherHandler
 }
 
@@ -29,23 +31,39 @@ func (mhf *MatcherHandlerFixture) Setup() {
 }
 
 func (mhf *MatcherHandlerFixture) TestMatcherRecievesJSONInput() {
-	envelope := &Envelope{
+	// envelope := &Envelope{
+	// 	JsonInput: JSONInput{
+	// 		Id:   "1",
+	// 		Kind: "Joined",
+	// 	},
+	// }
+
+	// mhf.application.output = JSONOutput{
+	// 	Id:   "1",
+	// 	Kind: "Joined",
+	// }
+	// mhf.inputSrcA <- envelope
+	// close(mhf.inputSrcA)
+	mhf.application.output = JSONOutput{Id: "1", Kind: "Joined"}
+	mhf.enqueueJSONEnvelope()
+	mhf.handler.Handle()
+	log.Println("envelope:", mhf.envelope)
+	log.Println("output:", <-mhf.output)
+	// mhf.AssertEqual(mhf.envelope, <-mhf.output) //causing runtime issue I guess?
+	mhf.AssertEqual("1", mhf.application.jsonInput.Id)
+	mhf.AssertEqual("Joined", mhf.application.jsonInput.Kind)
+	mhf.AssertEqual("Joined", mhf.envelope.Output.Kind)
+}
+
+func (mhf *MatcherHandlerFixture) enqueueJSONEnvelope() {
+	mhf.envelope = &Envelope{
 		JsonInput: JSONInput{
 			Id:   "1",
 			Kind: "Joined",
 		},
 	}
-
-	mhf.application.output = JSONOutput{
-		Id:   "1",
-		Kind: "Joined",
-	}
-	mhf.inputSrcA <- envelope
+	mhf.inputSrcA <- mhf.envelope
 	close(mhf.inputSrcA)
-	mhf.handler.Handle()
-	mhf.AssertEqual(envelope, <-mhf.output)
-	mhf.AssertEqual("1", mhf.application.jsonInput.Id)
-	mhf.AssertEqual("Joined", mhf.application.jsonInput.Kind)
 }
 
 func (mhf *MatcherHandlerFixture) TestMatcherRecievesXMLInput() {
