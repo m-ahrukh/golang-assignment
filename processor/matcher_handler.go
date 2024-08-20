@@ -28,15 +28,13 @@ func (matcher *MatcherHandler) Handle() {
 			if !ok {
 				return
 			}
-			result := matcher.application.Match(receivedA.JsonInput)
-			receivedA.Output = result
+			receivedA.Output = matcher.application.Match(receivedA.JsonInput)
 			matcher.output <- receivedA
 		case receivedB, ok := <-matcher.inputSrcB:
 			if !ok {
 				return
 			}
-			result := matcher.application.Match(receivedB.XmlInput)
-			receivedB.Output = result
+			receivedB.Output = matcher.application.Match(receivedB.XmlInput)
 			matcher.output <- receivedB
 		}
 	}

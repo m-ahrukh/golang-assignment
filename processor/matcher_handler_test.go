@@ -1,7 +1,6 @@
 package processor
 
 import (
-	"log"
 	"testing"
 
 	"github.com/smarty/gunit"
@@ -18,52 +17,50 @@ type MatcherHandlerFixture struct {
 	inputSrcB   chan *Envelope
 	output      chan *Envelope
 	application *FakeMatcher
-	envelope    *Envelope
-	handler     *MatcherHandler
+
+	handler *MatcherHandler
 }
 
 func (mhf *MatcherHandlerFixture) Setup() {
-	mhf.inputSrcA = make(chan *Envelope, 10)
-	mhf.inputSrcB = make(chan *Envelope, 10)
-	mhf.output = make(chan *Envelope, 10)
+	mhf.inputSrcA = make(chan *Envelope, 1024)
+	mhf.inputSrcB = make(chan *Envelope, 1024)
+	mhf.output = make(chan *Envelope, 1024)
 	mhf.application = NewFakeMatcher()
 	mhf.handler = NewMatcherHandler(mhf.inputSrcA, mhf.inputSrcB, mhf.output, mhf.application)
 }
 
 func (mhf *MatcherHandlerFixture) TestMatcherRecievesJSONInput() {
-	// envelope := &Envelope{
-	// 	JsonInput: JSONInput{
-	// 		Id:   "1",
-	// 		Kind: "Joined",
-	// 	},
-	// }
-
-	// mhf.application.output = JSONOutput{
-	// 	Id:   "1",
-	// 	Kind: "Joined",
-	// }
-	// mhf.inputSrcA <- envelope
-	// close(mhf.inputSrcA)
-	mhf.application.output = JSONOutput{Id: "1", Kind: "Joined"}
-	mhf.enqueueJSONEnvelope()
+	envelope := mhf.enqueueJSONEnvelope("1", "Joined")
+	close(mhf.inputSrcA)
 	mhf.handler.Handle()
-	log.Println("envelope:", mhf.envelope)
-	log.Println("output:", <-mhf.output)
-	// mhf.AssertEqual(mhf.envelope, <-mhf.output) //causing runtime issue I guess?
-	mhf.AssertEqual("1", mhf.application.jsonInput.Id)
-	mhf.AssertEqual("Joined", mhf.application.jsonInput.Kind)
-	mhf.AssertEqual("Joined", mhf.envelope.Output.Kind)
+
+	mhf.AssertEqual("1", envelope.Output.Id)
+	mhf.AssertEqual("Joined", envelope.Output.Kind)
+	mhf.AssertEqual(envelope, <-mhf.output)
 }
 
-func (mhf *MatcherHandlerFixture) enqueueJSONEnvelope() {
-	mhf.envelope = &Envelope{
+func (mhf *MatcherHandlerFixture) TestInputQueueDrained() {
+	envelope1 := mhf.enqueueJSONEnvelope("2", "Joined")
+	envelope2 := mhf.enqueueJSONEnvelope("3", "Joined")
+	envelope3 := mhf.enqueueJSONEnvelope("4", "Joined")
+
+	close(mhf.inputSrcA)
+	mhf.handler.Handle()
+
+	mhf.AssertEqual(envelope1, <-mhf.output)
+	mhf.AssertEqual(envelope2, <-mhf.output)
+	mhf.AssertEqual(envelope3, <-mhf.output)
+}
+
+func (mhf *MatcherHandlerFixture) enqueueJSONEnvelope(id string, kind string) *Envelope {
+	envelope := &Envelope{
 		JsonInput: JSONInput{
-			Id:   "1",
-			Kind: "Joined",
+			Id:   id,
+			Kind: kind,
 		},
 	}
-	mhf.inputSrcA <- mhf.envelope
-	close(mhf.inputSrcA)
+	mhf.inputSrcA <- envelope
+	return envelope
 }
 
 func (mhf *MatcherHandlerFixture) TestMatcherRecievesXMLInput() {
@@ -80,7 +77,8 @@ func (mhf *MatcherHandlerFixture) TestMatcherRecievesXMLInput() {
 type FakeMatcher struct {
 	jsonInput JSONInput
 	xmlInput  XMLInput
-	output    JSONOutput
+
+	output JSONOutput
 }
 
 func NewFakeMatcher() *FakeMatcher {
@@ -95,5 +93,6 @@ func (fakeMatcher *FakeMatcher) Match(value interface{}) JSONOutput {
 		fakeMatcher.xmlInput = v
 	}
 
+	fakeMatcher.output = JSONOutput{Id: fakeMatcher.jsonInput.Id, Kind: fakeMatcher.jsonInput.Kind}
 	return fakeMatcher.output
 }
