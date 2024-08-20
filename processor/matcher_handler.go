@@ -9,7 +9,7 @@ type MatcherHandler struct {
 }
 
 type Matcher interface {
-	Match(interface{})
+	Match(interface{}) JSONOutput
 }
 
 func NewMatcherHandler(inputSrcA, inputSrcB, output chan *Envelope, application Matcher) *MatcherHandler {
@@ -28,13 +28,15 @@ func (matcher *MatcherHandler) Handle() {
 			if !ok {
 				return
 			}
-			matcher.application.Match(receivedA.JsonInput)
+			result := matcher.application.Match(receivedA.JsonInput)
+			receivedA.Output = result
 			matcher.output <- receivedA
 		case receivedB, ok := <-matcher.inputSrcB:
 			if !ok {
 				return
 			}
-			matcher.application.Match(receivedB.XmlInput)
+			result := matcher.application.Match(receivedB.XmlInput)
+			receivedB.Output = result
 			matcher.output <- receivedB
 		}
 	}

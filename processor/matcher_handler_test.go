@@ -28,40 +28,54 @@ func (mhf *MatcherHandlerFixture) Setup() {
 	mhf.handler = NewMatcherHandler(mhf.inputSrcA, mhf.inputSrcB, mhf.output, mhf.application)
 }
 
-func (mhf *MatcherHandlerFixture) TestMatcherRecievesInput() {
-	envelope := &Envelope{}
+func (mhf *MatcherHandlerFixture) TestMatcherRecievesJSONInput() {
+	envelope := &Envelope{
+		JsonInput: JSONInput{
+			Id:   "1",
+			Kind: "Joined",
+		},
+	}
+
+	mhf.application.output = JSONOutput{
+		Id:   "1",
+		Kind: "Joined",
+	}
 	mhf.inputSrcA <- envelope
 	close(mhf.inputSrcA)
 	mhf.handler.Handle()
 	mhf.AssertEqual(envelope, <-mhf.output)
-	mhf.AssertEqual(envelope.JsonInput, mhf.application.jsonInput)
-	// mhf.AssertEqual(1, <-mhf.output)
-	// mhf.AssertEqual(1, mhf.application.inputSrc)
+	mhf.AssertEqual("1", mhf.application.jsonInput.Id)
+	mhf.AssertEqual("Joined", mhf.application.jsonInput.Kind)
+}
+
+func (mhf *MatcherHandlerFixture) TestMatcherRecievesXMLInput() {
+	envelope := &Envelope{}
 
 	mhf.inputSrcB <- envelope
 	close(mhf.inputSrcB)
 	mhf.handler.Handle()
 	mhf.AssertEqual(envelope, <-mhf.output)
 	mhf.AssertEqual(envelope.XmlInput, mhf.application.xmlInput)
-	// mhf.AssertEqual(2, <-mhf.output)
-	// mhf.AssertEqual(2, mhf.application.inputSrc)
 }
 
 // ////////////////////////////////////////////////////////////
 type FakeMatcher struct {
 	jsonInput JSONInput
 	xmlInput  XMLInput
+	output    JSONOutput
 }
 
 func NewFakeMatcher() *FakeMatcher {
 	return &FakeMatcher{}
 }
 
-func (fakeMatcher *FakeMatcher) Match(value interface{}) {
+func (fakeMatcher *FakeMatcher) Match(value interface{}) JSONOutput {
 	switch v := value.(type) {
 	case JSONInput:
 		fakeMatcher.jsonInput = v
 	case XMLInput:
 		fakeMatcher.xmlInput = v
 	}
+
+	return fakeMatcher.output
 }
